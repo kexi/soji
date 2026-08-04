@@ -17,6 +17,9 @@ DerivedData/
 # 通るが CI で違う版が来る」が起きる。アプリケーション (ライブラリではない)
 # なので lock ファイルはコミットする。
 
+# リリース成果物 (just release-build が作る)
+dist/
+
 # nix / direnv
 .direnv/
 result

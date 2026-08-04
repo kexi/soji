@@ -60,6 +60,27 @@ struct DeleterTests {
         #expect(report.estimatedBytes == 0, "一部でも失敗したらサイズを計上しない")
     }
 
+    /// 一部だけ消えた場合に、消えた分が deletedCount に乗ることを保証する。
+    ///
+    /// 場所単位で「失敗」に丸めると、中身の大半が消えているのに
+    /// 「0 件削除しました」と報告し、しかし解放量だけが増えるという
+    /// 矛盾した結果になる。
+    @Test func countsPartialSuccessesInsteadOfReportingZero() async throws {
+        let temp = try TemporaryDirectory()
+        let cache = try temp.makeDirectory("cache")
+        try temp.makeFile("cache/deletable1.bin", bytes: 1000)
+        try temp.makeFile("cache/deletable2.bin", bytes: 1000)
+        let locked = try temp.makeDirectory("cache/locked")
+        try temp.makeFile("cache/locked/stuck.bin", bytes: 1000)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o500], ofItemAtPath: locked.path)
+
+        let report = await Deleter().delete([makeTarget(url: cache, size: 3000)])
+
+        #expect(report.deletedCount >= 2, "消えた分が数えられていない")
+        #expect(!report.failures.isEmpty, "失敗が記録されていない")
+    }
+
     /// advisory な候補を絶対に削除しないことを保証する。
     ///
     /// Docker の仮想ディスクや go/pkg/mod は、直接消すとツールが壊れる。

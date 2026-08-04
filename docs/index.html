@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>soji — 開発者マシンのディスクを掃除する</title>
+<meta name="description" content="Homebrew / npm / Cargo / Xcode のキャッシュを見つけて安全に消す macOS アプリ。何を消すと何が起きるかを必ず示します。">
+
+<meta property="og:title" content="soji — 開発者マシンのディスクを掃除する">
+<meta property="og:description" content="再生成できるものだけを、理由を示して消す macOS アプリ。">
+<meta property="og:type" content="website">
+
+<style>
+:root {
+    color-scheme: light dark;
+
+    --bg: #fbfbfd;
+    --surface: #ffffff;
+    --text: #1d1d1f;
+    --text-dim: #6e6e73;
+    --line: #d2d2d7;
+    --accent: #0071e3;
+    --safe: #1c7c54;
+    --warn: #9a5b00;
+    --danger: #b3261e;
+    --radius: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #000000;
+        --surface: #1c1c1e;
+        --text: #f5f5f7;
+        --text-dim: #98989d;
+        --line: #38383a;
+        --accent: #2997ff;
+        --safe: #4cc38a;
+        --warn: #e6a23c;
+        --danger: #ff6961;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+    max-width: 900px;
+    margin-inline: auto;
+    padding-inline: 24px;
+}
+
+/* ── hero ────────────────────────────────────────────────── */
+
+.hero {
+    min-height: 82svh;
+    display: grid;
+    align-content: center;
+    gap: 28px;
+    padding-block: 96px 72px;
+    text-align: center;
+}
+
+.logo {
+    font-size: clamp(3.5rem, 12vw, 6rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    margin: 0;
+    line-height: 1;
+}
+
+.tagline {
+    font-size: clamp(1.1rem, 3.4vw, 1.6rem);
+    color: var(--text-dim);
+    margin: 0;
+    text-wrap: balance;
+}
+
+.figure {
+    font-variant-numeric: tabular-nums;
+    font-size: clamp(2.4rem, 9vw, 4.5rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--accent);
+    line-height: 1.1;
+}
+
+.figure small {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--text-dim);
+    margin-top: 8px;
+}
+
+.cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+}
+
+.cta {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 14px 30px;
+    border-radius: 980px;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.cta:hover { opacity: 0.88; }
+.cta:active { transform: scale(0.97); }
+
+.cta.secondary {
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+.note {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+/* ── sections ────────────────────────────────────────────── */
+
+section { padding-block: 72px; }
+
+h2 {
+    font-size: clamp(1.5rem, 5vw, 2.2rem);
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+    text-wrap: balance;
+}
+
+.lede {
+    color: var(--text-dim);
+    margin: 0 0 36px;
+    text-wrap: pretty;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+}
+
+.card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px;
+}
+
+.card h3 {
+    margin: 0 0 8px;
+    font-size: 1.05rem;
+}
+
+.card p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 0.94rem;
+}
+
+.tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 980px;
+    border: 1px solid currentColor;
+    margin-bottom: 10px;
+}
+
+.tag.safe { color: var(--safe); }
+.tag.warn { color: var(--warn); }
+.tag.danger { color: var(--danger); }
+
+/* ── code ────────────────────────────────────────────────── */
+
+pre {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    overflow-x: auto;
+    font-size: 0.88rem;
+    line-height: 1.65;
+    margin: 0 0 16px;
+}
+
+code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+pre .c { color: var(--text-dim); }
+pre .p { color: var(--accent); }
+
+/* ── truth table ─────────────────────────────────────────── */
+
+.facts {
+    display: grid;
+    gap: 14px;
+    margin-top: 8px;
+}
+
+.fact {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 14px;
+    align-items: start;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+}
+
+.fact b {
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    font-size: 1.05rem;
+    white-space: nowrap;
+}
+
+.fact span {
+    color: var(--text-dim);
+    font-size: 0.94rem;
+}
+
+footer {
+    border-top: 1px solid var(--line);
+    padding-block: 40px 64px;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+footer a { color: inherit; }
+
+/* ── scroll-driven reveal ────────────────────────────────────
+   装飾なので Progressive Enhancement とし、フォールバックは置かない。
+   animation-range: entry まで見るのは、部分実装のブラウザを弾くため。 */
+
+@media (prefers-reduced-motion: no-preference) {
+    @supports ((animation-timeline: view()) and (animation-range: entry)) {
+        @keyframes reveal {
+            from {
+                opacity: 0;
+                transform: translateY(28px);
+            }
+        }
+
+        .reveal {
+            /* transform と opacity だけを動かす (コンポジタで処理される)。 */
+            animation: reveal auto linear backwards;
+            /* animation shorthand は animation-timeline をリセットするので後に書く。 */
+            animation-timeline: view();
+            animation-range: entry 0% cover 32%;
+        }
+
+        @keyframes drift {
+            to { transform: translateY(-40px); }
+        }
+
+        .hero .figure {
+            animation: drift auto linear;
+            animation-timeline: view();
+            animation-range: exit;
+        }
+    }
+}
+</style>
+</head>
+<body>
+
+<header class="hero wrap">
+    <h1 class="logo">soji</h1>
+    <p class="tagline">開発者マシンのディスクを、理由を示して掃除する。</p>
+
+    <p class="figure">
+        71.4 GB
+        <small>開発から 2 年経ったマシンで実際に見つかったキャッシュの量</small>
+    </p>
+
+    <div class="cta-row">
+        <a class="cta" href="https://github.com/kexi/soji/releases/latest/download/soji.dmg">
+            ダウンロード
+        </a>
+        <a class="cta secondary" href="https://github.com/kexi/soji">GitHub</a>
+    </div>
+    <p class="note">macOS 26 以降 / Apple Silicon</p>
+</header>
+
+<main>
+
+<section class="wrap reveal">
+    <h2>消していいものだけを消す</h2>
+    <p class="lede">
+        対象は開発ツールが自分で作り直せるものだけです。ソースコードや設定、
+        あなたが手で置いたファイルには一切触れません。
+    </p>
+
+    <div class="grid">
+        <article class="card">
+            <span class="tag safe">安全</span>
+            <h3>再生成できる</h3>
+            <p>Homebrew のボトル、npm・Cargo・Gradle のキャッシュ、Xcode の DerivedData。次のビルドやインストールで自動的に戻ります。</p>
+        </article>
+        <article class="card">
+            <span class="tag warn">再取得が重い</span>
+            <h3>戻せるが時間がかかる</h3>
+            <p>Maven のローカルリポジトリ、Go のモジュールキャッシュ、実機の DeviceSupport。消せますが、取り直しにネットワークと時間が要ります。</p>
+        </article>
+        <article class="card">
+            <span class="tag danger">要確認</span>
+            <h3>ツールに任せる</h3>
+            <p>Docker の仮想ディスクや Go のモジュール本体は直接消すと壊れます。soji は消さず、<code>docker system prune</code> のような正しいコマンドを提示します。</p>
+        </article>
+    </div>
+</section>
+
+<section class="wrap reveal">
+    <h2>ゴミ箱には入れません</h2>
+    <p class="lede">
+        ゴミ箱への移動は同じディスク上での名前の付け替えにすぎず、空き容量は 1 バイトも増えません。
+        soji は完全に削除します。だからこそ対象を再生成できるものに絞っています。
+    </p>
+
+    <div class="facts">
+        <div class="fact">
+            <b>0.024 秒</b>
+            <span>20,000 ファイルをゴミ箱に移動した時間。空き容量の増加は 0 バイト。</span>
+        </div>
+        <div class="fact">
+            <b>1.4 秒</b>
+            <span>同じファイルを実際に削除した時間。この 60 倍の差が「何も解放していない」ことの証拠です。</span>
+        </div>
+        <div class="fact">
+            <b>概算</b>
+            <span>APFS のファイル複製は <code>du</code> でさえ二重に数えます。soji は削除後に実際の解放量も示します。</span>
+        </div>
+    </div>
+</section>
+
+<section class="wrap reveal">
+    <h2>まず見せる。消すのはそのあと</h2>
+    <p class="lede">
+        起動するとスキャンが走り、何がどれだけあるかを一覧にします。
+        各項目には「なぜ消して安全か」と「消えると何が起きるか」が付きます。
+        削除は選んで明示的に実行したときだけです。
+    </p>
+</section>
+
+<section class="wrap reveal">
+    <h2>コマンドラインでも同じことができる</h2>
+    <p class="lede">
+        GUI でできることは CLI でもできます。AI エージェントから使えるよう、
+        構造化された JSON を返し、削除は明示しない限り実行しません。
+    </p>
+
+<pre><code><span class="c"># 候補を JSON で得る（何も消さない）</span>
+soji scan --json
+
+<span class="c"># 何が消えるかを確認する（既定はドライラン）</span>
+soji clean
+
+<span class="c"># 実際に削除する</span>
+soji clean --yes
+
+<span class="c"># 何を消すと何が起きるかを読む</span>
+soji rules --json</code></pre>
+
+    <p class="note">
+        <code>clean</code> は <code>--yes</code> を付けない限り 1 バイトも削除しません。
+    </p>
+</section>
+
+<section class="wrap reveal">
+    <h2>インストール</h2>
+
+<pre><code><span class="c"># アプリ</span>
+<span class="c"># 上のボタンから .dmg を取得して Applications に入れる</span>
+
+<span class="c"># CLI（Homebrew）</span>
+brew install kexi/tap/soji</code></pre>
+</section>
+
+</main>
+
+<footer>
+    <p>
+        <a href="https://github.com/kexi/soji">github.com/kexi/soji</a>
+        ・ MIT License
+    </p>
+</footer>
+
+</body>
+</html>

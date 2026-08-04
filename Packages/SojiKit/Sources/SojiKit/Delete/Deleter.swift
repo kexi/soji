@@ -53,12 +53,14 @@ public struct Deleter: Sendable {
                         completed: completed,
                         total: allURLs.count))
 
-                let failures = removeContents(of: url, advisory: target.advisoryCommand)
-                if failures.isEmpty {
-                    report.deletedCount += 1
-                } else {
+                let outcome = removeContents(of: url, advisory: target.advisoryCommand)
+                // Why 部分成功も数えるか: 場所単位で「失敗」に丸めると、実際には
+                // 中身の大半が消えているのに「0 件削除しました」と報告してしまう。
+                // 解放量だけが増えていて件数が 0 という矛盾した結果になる。
+                report.deletedCount += outcome.removedCount
+                if !outcome.failures.isEmpty {
                     didFailAnywhere = true
-                    report.failures.append(contentsOf: failures)
+                    report.failures.append(contentsOf: outcome.failures)
                 }
                 completed += 1
             }
@@ -80,27 +82,45 @@ public struct Deleter: Sendable {
     /// throw するが「どこまで消えたか」を返さない。ルートに 1 回だけ撃つと、
     /// 権限エラー 1 個で残り全部が消えたのか消えていないのか判別できなくなる。
     /// 1 段掘って個別に try/catch し、失敗した枝だけを報告する。
-    private func removeContents(of url: URL, advisory: String?) -> [DeletionFailure] {
+    private func removeContents(of url: URL, advisory: String?) -> RemovalOutcome {
         let manager = FileManager.default
         let children =
             (try? manager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil, options: []))
             ?? []
 
-        var failures: [DeletionFailure] = []
+        var outcome = RemovalOutcome()
+
+        // 中身が空 (あるいは読めない) なら、その場所自体を 1 件として扱う。
+        guard !children.isEmpty else {
+            if let failure = remove(url, advisory: advisory) {
+                outcome.failures.append(failure)
+            } else {
+                outcome.removedCount += 1
+            }
+            return outcome
+        }
 
         for child in children {
             if let failure = remove(child, advisory: advisory) {
-                failures.append(failure)
+                outcome.failures.append(failure)
+            } else {
+                outcome.removedCount += 1
             }
         }
 
         // 中身が消えていれば、入れ物自体も消す。中身が残っている場合は
         // ここも失敗するが、原因は既に failures に載っているので報告しない。
-        let isEmptyNow = failures.isEmpty
+        let isEmptyNow = outcome.failures.isEmpty
         if isEmptyNow, let failure = remove(url, advisory: advisory) {
-            failures.append(failure)
+            outcome.failures.append(failure)
         }
-        return failures
+        return outcome
+    }
+
+    /// 1 つの場所を消した結果。
+    private struct RemovalOutcome {
+        var removedCount = 0
+        var failures: [DeletionFailure] = []
     }
 
     private func remove(_ url: URL, advisory: String?) -> DeletionFailure? {

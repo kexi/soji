@@ -42,6 +42,12 @@ struct FilterOptions: ParsableArguments {
 
     @Flag(name: .long, help: "ツール自身のコマンドに委ねる項目 (Docker 等) も一覧に含める。")
     var includeAdvisory = false
+
+    // Why 環境変数ではなくオプションか: FileManager.homeDirectoryForCurrentUser は
+    // getpwuid を読むため HOME を差し替えても効かない。隔離した場所で試したい
+    // ときに、環境変数では意図が通らず実ホームを消しかねない。
+    @Option(name: .long, help: "ホームディレクトリを差し替える。検証用。", completion: .directory)
+    var home: String?
 }
 
 /// 出力形式の共通オプション。

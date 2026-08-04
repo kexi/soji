@@ -1,0 +1,109 @@
+name: Release
+
+# Why not on: release: published: Release を先に作るとタグが焼かれ、後続の
+# ビルドや notarize が失敗しても同じバージョンでやり直せなくなる。アセットを
+# 全部揃えてから gh release create 一発で作る (内部で draft -> upload ->
+# publish を踏むので、publish 時にだけタグが確定する)。
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "リリースするバージョン (例: 0.1.0)"
+        required: true
+        type: string
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - uses: DeterminateSystems/nix-installer-action@786fff0690178f1234e4e1fe9b536e94f5433196 # v20
+
+      - name: Select the newest Xcode 26
+        run: |
+          set -euo pipefail
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$xcode" ]; then
+            echo "::error::No Xcode 26 found. soji requires the macOS 26 SDK."
+            exit 1
+          fi
+          sudo xcode-select -s "$xcode/Contents/Developer"
+
+      # Why 一時 keychain か: ランナーの既定 keychain に証明書を入れると
+      # 後続ジョブに残りうる。ジョブ専用のものを作り、最後に必ず消す。
+      - name: Import the Developer ID certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          keychain="$RUNNER_TEMP/soji-signing.keychain-db"
+          certificate="$RUNNER_TEMP/certificate.p12"
+
+          printf '%s' "$CERTIFICATE_P12" | base64 --decode > "$certificate"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$keychain"
+          security import "$certificate" -k "$keychain" \
+            -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$keychain" >/dev/null
+          security list-keychain -d user -s "$keychain" login.keychain-db
+
+          rm -f "$certificate"
+
+      - name: Verify the version matches the project
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          declared="$(grep -m1 'MARKETING_VERSION:' project.yml | sed 's/.*"\(.*\)".*/\1/')"
+          if [ "$declared" != "$VERSION" ]; then
+            echo "::error::project.yml declares $declared but you asked for $VERSION."
+            echo "Update MARKETING_VERSION first so the built app reports the right version."
+            exit 1
+          fi
+
+      - name: Run the full check suite
+        run: nix develop -c just check-ci
+
+      - name: Build and sign
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: nix develop -c just release-build
+
+      - name: Notarize and staple
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: nix develop -c just notarize
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          # アセットを揃えてから 1 コマンドで作る。publish 時にだけタグが焼かれる。
+          gh release create "v$VERSION" \
+            dist/soji.dmg \
+            dist/soji-cli-macos-arm64.tar.gz \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --generate-notes
+
+      - name: Clean up the signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/soji-signing.keychain-db" || true

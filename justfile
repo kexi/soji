@@ -120,6 +120,67 @@ check: lint fmt-check test secrets pin-check build-cli build
 # CI 用のゲート。build を署名なし版に差し替えただけ。
 check-ci: lint fmt-check test secrets pin-check build-cli build-unsigned
 
+# ───── リリース ──────────────────────────────────────────────────────────────
+
+# Why release 構成か: 走査は 100 万ファイル規模で、debug ビルドとの速度差が
+# 体感できるほど大きい。配布物は必ず最適化して出す。
+#
+# 配布物 (app + CLI) をビルドして署名する
+release-build:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf dist && mkdir -p dist
+    xcodegen generate
+
+    # GUI: Release 構成で archive してから .app を取り出す。
+    xcodebuild -project Soji.xcodeproj -scheme Soji -configuration Release \
+      -archivePath dist/Soji.xcarchive archive
+    cp -R dist/Soji.xcarchive/Products/Applications/Soji.app dist/Soji.app
+
+    # CLI: 同じ SojiKit から executable を出す。
+    cd Packages/SojiKit && swift build -c release --product soji && cd ../..
+    cp Packages/SojiKit/.build/release/soji dist/soji
+
+    # Why hardened runtime + timestamp か: notarize の必須条件。どちらか
+    # 欠けると Apple のサーバに弾かれる。
+    identity="Developer ID Application"
+    codesign --force --options runtime --timestamp \
+      --sign "$identity" dist/soji
+    codesign --force --options runtime --timestamp --deep \
+      --sign "$identity" dist/Soji.app
+
+    # DMG は署名済みの .app を入れてから署名する。
+    hdiutil create -volname Soji -srcfolder dist/Soji.app -ov -format UDZO dist/soji.dmg
+    codesign --force --timestamp --sign "$identity" dist/soji.dmg
+
+    tar -czf dist/soji-cli-macos-arm64.tar.gz -C dist soji
+    echo "built: dist/soji.dmg dist/soji-cli-macos-arm64.tar.gz"
+
+# Why staple まで行うか: staple しないとオフラインの初回起動で Gatekeeper が
+# 検証できず、警告が出る。チケットをアセット自体に埋め込む。
+#
+# 配布物を notarize して staple する
+notarize:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${APPLE_ID:?APPLE_ID が要る}"
+    : "${APPLE_APP_PASSWORD:?APPLE_APP_PASSWORD が要る}"
+    : "${TEAM_ID:?TEAM_ID が要る}"
+
+    xcrun notarytool submit dist/soji.dmg \
+      --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$TEAM_ID" \
+      --wait
+    xcrun stapler staple dist/soji.dmg
+
+    # CLI は tar の中身に staple できないので、notarize だけ通す
+    # (Gatekeeper は初回実行時にオンラインで検証する)。
+    xcrun notarytool submit dist/soji-cli-macos-arm64.tar.gz \
+      --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$TEAM_ID" \
+      --wait
+
+    spctl --assess --type open --context context:primary-signature -vv dist/soji.dmg
+    echo "notarized and stapled"
+
 # ───── LP (docs/, GitHub Pages) ──────────────────────────────────────────────
 
 # Why python3 -m http.server: LP はビルドステップの無い素の HTML/CSS なので、

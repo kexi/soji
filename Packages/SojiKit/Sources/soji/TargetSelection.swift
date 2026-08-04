@@ -21,8 +21,9 @@ func scanAndFilter(
 
     var targets: [CleanTarget] = []
     var progress = ProgressReporter(enabled: showsProgress)
+    let scanner = TargetScanner(resolver: try options.makeResolver())
 
-    for await event in TargetScanner().scan() {
+    for await event in scanner.scan() {
         switch event {
         case .found(let target):
             targets.append(target)
@@ -36,6 +37,20 @@ func scanAndFilter(
 }
 
 extension FilterOptions {
+    /// --home が指定されていればそこを、無ければ実ホームを見る resolver。
+    func makeResolver() throws -> PathResolver {
+        guard let home else { return PathResolver() }
+
+        let url = URL(fileURLWithPath: (home as NSString).expandingTildeInPath)
+            .standardizedFileURL
+        var isDirectory: ObjCBool = false
+        let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        guard exists, isDirectory.boolValue else {
+            throw ValidationError("--home に指定した '\(home)' はディレクトリではありません。")
+        }
+        return PathResolver(home: url)
+    }
+
     func makeFilter() throws -> TargetFilter {
         TargetFilter(
             risks: try parseRisks(risk),

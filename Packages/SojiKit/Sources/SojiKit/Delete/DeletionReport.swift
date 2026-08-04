@@ -32,6 +32,10 @@ public struct DeletionReport: Sendable {
     public var estimatedBytes: Int64 = 0
 
     /// 削除に成功した項目の数。
+    ///
+    /// 場所ではなく、実際に消えたエントリを数える。1 つの場所の中で一部だけ
+    /// 消えた場合も、消えた分はここに乗る。「0 件削除したのに容量が解放された」
+    /// という矛盾した報告を避けるため。
     public var deletedCount: Int = 0
 
     public var failures: [DeletionFailure] = []
