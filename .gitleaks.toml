@@ -1,0 +1,20 @@
+# gitleaks configuration.
+# https://github.com/gitleaks/gitleaks#configuration
+#
+# Build on top of gitleaks' bundled ruleset rather than redefining it, so we
+# inherit upstream coverage for new secret types automatically.
+[extend]
+useDefault = true
+
+# Add project-specific rules below.
+# [[rules]]
+#   id = "my-custom-rule"
+#   description = "Example custom secret pattern"
+#   regex = '''(?i)my_secret_[0-9a-z]{32}'''
+
+# Allowlist false positives below (e.g. fixtures, example keys).
+# [allowlist]
+#   description = "Ignore test fixtures"
+#   paths = [
+#     '''tests/fixtures/.*''',
+#   ]

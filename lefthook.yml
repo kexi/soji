@@ -1,0 +1,18 @@
+# pre-commit のみ。
+# Why not pre-push: push 前の重い検査は `just check` に集約してある。hook で
+# 二重に走らせても待ち時間が増えるだけで、誰も --no-verify に手を伸ばさない
+# ように「コミットは速いまま」を保つ方が実効性がある。
+pre-commit:
+  parallel: true
+  commands:
+    gitleaks:
+      run: gitleaks git --pre-commit --staged --redact
+    pinact:
+      glob: ".github/workflows/*.{yml,yaml}"
+      run: pinact run -fix=false -no-api {staged_files}
+    swiftlint:
+      glob: "*.swift"
+      run: swiftlint lint --strict {staged_files}
+    swift-format:
+      glob: "*.swift"
+      run: xcrun swift-format lint --strict {staged_files}

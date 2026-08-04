@@ -1,0 +1,22 @@
+# XcodeGen が project.yml から生成する。単一の真実は project.yml なので
+# 生成物はコミットしない (マージ衝突の温床にもなる)。
+*.xcodeproj
+
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+
+# SwiftPM
+.build/
+.swiftpm/
+Package.resolved
+
+# nix / direnv
+.direnv/
+result
+result-*
+
+# macOS
+.DS_Store

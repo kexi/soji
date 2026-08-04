@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/suzuki-shunsuke/pinact/main/json-schema/pinact.json
+#
+# pinact pins GitHub Actions to immutable commit SHAs.
+# https://github.com/suzuki-shunsuke/pinact
+version: 3
+
+# Refuse to pin to versions newer than this many days, to dodge a freshly
+# published malicious release. 0 disables the check.
+min_age:
+  value: 0
+
+# Per-action overrides. Later matching rules win.
+# rules:
+#   - min_age: 7
+#     condition: 'true'
+
+# Actions pinact should leave untouched.
+# ignore_actions:
+#   - name: actions/checkout

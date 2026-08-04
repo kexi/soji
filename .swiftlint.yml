@@ -1,0 +1,13 @@
+force_unwrapping:
+  severity: warning
+
+force_cast:
+  severity: error
+
+included:
+  - Soji
+  - SojiKit/Sources
+  - SojiKit/Tests
+
+excluded:
+  - SojiKit/.build

@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    # Why macos-26: Liquid Glass (macOS 26 SDK) と Swift 6.3 が要る。
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      # Why not @main: 可変参照は pinact が SHA 固定できず、上流が差し替わった
+      # 瞬間に CI が任意のコードを実行しうる。タグ経由で SHA に固定する。
+      - uses: DeterminateSystems/nix-installer-action@786fff0690178f1234e4e1fe9b536e94f5433196 # v20
+
+      - name: Select Xcode 26
+        run: sudo xcode-select -s /Applications/Xcode_26.app/Contents/Developer
+
+      # CI とローカルの二重管理を避けるため、CI は just を呼ぶだけにする。
+      # check-ci は check の build を署名なし版に差し替えたもの (証明書が無いため)。
+      - name: just check-ci
+        run: nix develop -c just check-ci
