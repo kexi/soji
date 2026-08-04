@@ -37,7 +37,17 @@ final class ScanViewModel {
 
     /// 選択中の概算合計 (バイト)。
     var selectedBytes: Int64 {
-        selectedTargets.reduce(0) { $0 + $1.allocatedSize }
+        selectedTargets.reclaimableBytes
+    }
+
+    /// スキャンで見つかった、soji が削除できる量の合計 (バイト)。
+    var reclaimableBytes: Int64 {
+        targets.reclaimableBytes
+    }
+
+    /// soji では消さず、ツール自身のコマンドに委ねる量の合計 (バイト)。
+    var advisoryBytes: Int64 {
+        targets.advisoryBytes
     }
 
     func scan() {

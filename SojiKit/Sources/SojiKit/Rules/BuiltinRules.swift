@@ -162,6 +162,24 @@ public enum BuiltinRules {
             rationale: "テスト用にダウンロードされたブラウザ。playwright install で再取得できる。",
             consequence: "次回テスト実行前に再ダウンロードが必要。数百 MB あり時間がかかる。"
         ),
+        CleanRule(
+            id: "pnpm.storeUnreferenced",
+            toolName: "pnpm",
+            displayName: "ストアの未参照パッケージ",
+            locations: [
+                .init("Library/pnpm/store"),
+                .init(".local/share/pnpm/store"),
+            ],
+            risk: .safe,
+            // Why advisory: どのパッケージが未参照かを知っているのは pnpm 自身
+            // (store/v11/index.db と projects/)。soji がファイル単位で判断すると
+            // 現役の依存を消しかねないので、選別は pnpm にやらせる。
+            rationale: "どのプロジェクトからも参照されなくなったパッケージ。pnpm 自身が判別できる。",
+            consequence: "現役の依存はそのまま残る。将来 install が少し遅くなるだけ。",
+            environmentOverride: .init("PNPM_HOME", replaces: "Library/pnpm"),
+            isAdvisory: true,
+            advisoryCommand: "pnpm store prune"
+        ),
     ]
 
     // MARK: - slowToRebuild
@@ -233,6 +251,25 @@ public enum BuiltinRules {
             consequence: "次回 gradlew 実行時に Gradle 本体を再ダウンロードする。",
             environmentOverride: .init("GRADLE_USER_HOME", replaces: ".gradle")
         ),
+        CleanRule(
+            id: "pnpm.store",
+            toolName: "pnpm",
+            displayName: "コンテンツアドレスストア全体",
+            locations: [
+                .init("Library/pnpm/store"),
+                .init(".local/share/pnpm/store"),
+            ],
+            // Why not needsConfirmation: 当初は「ストアを消すと既存の
+            // node_modules が壊れる」と判断していたが、実測で否定された。
+            // APFS では pnpm が reflink (クローン) で実体を配るため、
+            // node_modules 側のファイルは links=1 で inode がストアと別。
+            // ストアを退避しても require() が通ることを確認済み。
+            // 壊れはしないが再取得は重いので slowToRebuild が正確。
+            risk: .slowToRebuild,
+            rationale: "取得済みパッケージの原本。APFS 上では node_modules に複製で配られるため、消しても既存プロジェクトは動く。",
+            consequence: "次回以降の install が全てネットワーク再取得になる。未参照分だけ消すなら pnpm store prune の方が良い。",
+            environmentOverride: .init("PNPM_HOME", replaces: "Library/pnpm")
+        ),
     ]
 
     // MARK: - needsConfirmation
@@ -293,21 +330,6 @@ public enum BuiltinRules {
             environmentOverride: .init("GOPATH", replaces: "go"),
             isAdvisory: true,
             advisoryCommand: "go clean -modcache"
-        ),
-        CleanRule(
-            id: "pnpm.store",
-            toolName: "pnpm",
-            displayName: "コンテンツアドレスストア",
-            locations: [
-                .init("Library/pnpm/store"),
-                .init(".local/share/pnpm/store"),
-            ],
-            risk: .needsConfirmation,
-            // pnpm は node_modules の実体をこのストアと共有する (ハードリンク
-            // または APFS クローン)。ストアを消すと既存プロジェクトが壊れる。
-            rationale: "全プロジェクトの node_modules が実体を共有するストア。",
-            consequence: "既存プロジェクトの node_modules が壊れ、各プロジェクトで pnpm install のやり直しが要る。",
-            environmentOverride: .init("PNPM_HOME", replaces: "Library/pnpm")
         ),
         CleanRule(
             id: "docker.data",

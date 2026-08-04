@@ -64,7 +64,7 @@ private struct SidebarView: View {
     /// ツール別の合計。大きい順に並べる。
     private var toolSummaries: [(name: String, bytes: Int64)] {
         Dictionary(grouping: model.targets, by: \.toolName)
-            .map { (name: $0.key, bytes: $0.value.reduce(Int64(0)) { $0 + $1.allocatedSize }) }
+            .map { (name: $0.key, bytes: $0.value.reclaimableBytes + $0.value.advisoryBytes) }
             .sorted { $0.bytes > $1.bytes }
     }
 }
@@ -132,9 +132,14 @@ private struct TargetTableView: View {
         case .scanning(let completed, let total):
             return total == 0 ? "スキャン中…" : "スキャン中… \(completed)/\(total)"
         case .done:
-            let bytes = model.targets.reduce(Int64(0)) { $0 + $1.allocatedSize }
-            let formatted = bytes.formatted(.byteCount(style: .file))
-            return "\(model.targets.count) 件 / 概算 \(formatted)"
+            let reclaimable = model.reclaimableBytes.formatted(.byteCount(style: .file))
+            let advisory = model.advisoryBytes
+            guard advisory > 0 else {
+                return "\(model.targets.count) 件 / 概算 \(reclaimable)"
+            }
+            // soji が消さない分は別枠で示す。合計に混ぜると「消せる量」の嘘になる。
+            let advisoryText = advisory.formatted(.byteCount(style: .file))
+            return "\(model.targets.count) 件 / 概算 \(reclaimable)（別途 \(advisoryText) はコマンドで削除）"
         }
     }
 
