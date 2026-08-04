@@ -13,7 +13,12 @@
 
   outputs =
     { nixpkgs, flake-utils, ... }:
-    flake-utils.lib.eachDefaultSystem (
+    # Why aarch64-darwin だけか: soji は macOS 26 の Liquid Glass と Xcode 26 を
+    # 前提とする macOS 専用アプリで、他システムでビルドできる余地が無い。
+    # eachDefaultSystem のままだと x86_64-darwin まで展開され、nixpkgs が
+    # そのシステムのサポートを打ち切っている今 `nix flake check --all-systems`
+    # が評価に失敗する。動かせない対象を宣言しない。
+    flake-utils.lib.eachSystem [ "aarch64-darwin" ] (
       system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -24,22 +29,15 @@
         # しまい、SojiKit のリンクが失敗する (Ld ... SojiKit.o)。soji は Swift
         # だけで書かれており C ツールチェーンを必要としないので、丸ごと外す。
         devShells.default = pkgs.mkShellNoCC {
-          packages =
-            with pkgs;
-            [
-              git
-              just
-              lefthook
-              gitleaks
-              pinact
-            ]
-            # Why optionals: xcodegen / swiftlint は darwin 専用パッケージで、
-            # Linux では解決に失敗して flake の評価ごと壊れる。CI を macos に
-            # 寄せていても `nix flake check` が Linux で回る余地を潰さない。
-            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-              xcodegen
-              swiftlint
-            ];
+          packages = with pkgs; [
+            git
+            just
+            lefthook
+            gitleaks
+            pinact
+            xcodegen
+            swiftlint
+          ];
 
           # Why not swift-format from nixpkgs: nixpkgs の swift-format は 5.10.1 で、
           # このリポジトリの Swift 6.3 構文 (@concurrent 等) をパースできない。
@@ -72,6 +70,17 @@
               unset DEVELOPER_DIR
               echo "warning: Xcode not selected; run: sudo xcode-select -s /Applications/Xcode.app" >&2
             fi
+
+            # Why SDK バージョンを確かめるか: Xcode があっても macOS 26 SDK が
+            # 無ければ Liquid Glass の API が解決できず、原因の分かりにくい
+            # コンパイルエラーになる。入口で気づけるようにしておく。
+            sdk_version="$(xcrun --sdk macosx --show-sdk-version 2>/dev/null || echo 0)"
+            case "$sdk_version" in
+              26.*) : ;;
+              *)
+                echo "warning: macOS SDK $sdk_version found; soji needs the macOS 26 SDK (Liquid Glass)." >&2
+                ;;
+            esac
 
             if [ -d .git ]; then
               lefthook install >/dev/null 2>&1 || true

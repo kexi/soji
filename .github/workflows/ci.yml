@@ -21,8 +21,24 @@ jobs:
       # 瞬間に CI が任意のコードを実行しうる。タグ経由で SHA に固定する。
       - uses: DeterminateSystems/nix-installer-action@786fff0690178f1234e4e1fe9b536e94f5433196 # v20
 
-      - name: Select Xcode 26
-        run: sudo xcode-select -s /Applications/Xcode_26.app/Contents/Developer
+      # Why パスを決め打ちしないか: ランナーの Xcode は
+      # /Applications/Xcode_26.1.app のようにマイナー版まで名前に入り、
+      # イメージ更新で変わる。実在するものから最新を選ぶ。
+      # macOS 26 SDK が無ければここで止める (先に進むと SDK 不整合のまま
+      # 奥で分かりにくく失敗する)。
+      - name: Select the newest Xcode 26
+        run: |
+          set -euo pipefail
+          xcode="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$xcode" ]; then
+            echo "::error::No Xcode 26 found. soji requires the macOS 26 SDK (Liquid Glass)."
+            ls -d /Applications/Xcode*.app || true
+            exit 1
+          fi
+          echo "Selecting $xcode"
+          sudo xcode-select -s "$xcode/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
 
       # CI とローカルの二重管理を避けるため、CI は just を呼ぶだけにする。
       # check-ci は check の build を署名なし版に差し替えたもの (証明書が無いため)。
