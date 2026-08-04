@@ -35,17 +35,24 @@ public struct PathResolver: Sendable {
             guard let base = absoluteURL(for: location, rule: rule) else { continue }
             guard isDirectory(base) else { continue }
 
-            if location.expandsChildren {
-                let children =
-                    (try? FileManager.default.contentsOfDirectory(
-                        at: base,
-                        includingPropertiesForKeys: [.isDirectoryKey],
-                        options: [])) ?? []
-                for child in children where isDirectory(child) {
-                    results.append(ResolvedLocation(url: child, displayName: child.lastPathComponent))
-                }
-            } else {
+            guard location.expandsChildren else {
                 results.append(ResolvedLocation(url: base, displayName: rule.displayName))
+                continue
+            }
+
+            let children =
+                (try? FileManager.default.contentsOfDirectory(
+                    at: base,
+                    includingPropertiesForKeys: [.isDirectoryKey],
+                    options: [])) ?? []
+            for child in children where isDirectory(child) {
+                results.append(
+                    ResolvedLocation(
+                        url: child,
+                        displayName: child.lastPathComponent,
+                        collapsesBelow: location.childThreshold,
+                        parentDisplayName: rule.displayName
+                    ))
             }
         }
 
@@ -97,4 +104,23 @@ public struct ResolvedLocation: Sendable, Hashable {
 
     /// UI に出す名前。`expandsChildren` で展開された場合は子の名前になる。
     public let displayName: String
+
+    /// このサイズ未満なら個別の行にせず、他の小さい兄弟とまとめる (バイト)。
+    /// 0 なら常に個別に表示する。
+    public let collapsesBelow: Int64
+
+    /// まとめられたときに使う親の名前。
+    public let parentDisplayName: String?
+
+    public init(
+        url: URL,
+        displayName: String,
+        collapsesBelow: Int64 = 0,
+        parentDisplayName: String? = nil
+    ) {
+        self.url = url
+        self.displayName = displayName
+        self.collapsesBelow = collapsesBelow
+        self.parentDisplayName = parentDisplayName
+    }
 }

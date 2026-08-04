@@ -39,9 +39,22 @@ public struct CleanRule: Sendable, Identifiable, Hashable {
         /// DerivedData のように「プロジェクトごとに残すか決めたい」場所で使う。
         public let expandsChildren: Bool
 
-        public init(_ relativePath: String, expandsChildren: Bool = false) {
+        /// 展開した子のうち、これ未満のものは親にまとめる (バイト)。
+        ///
+        /// Why 必要か: CoreSimulator/Devices は実機で 88 件に展開され、その
+        /// 大半が 18MB 以下の未起動デバイスだった。一覧がノイズで埋まり、
+        /// 本当に消したい上位 (数十 GB) が見えなくなる。小さい子は 1 行に
+        /// まとめて「その他 N 件」として扱う。
+        public let childThreshold: Int64
+
+        public init(
+            _ relativePath: String,
+            expandsChildren: Bool = false,
+            childThreshold: Int64 = 0
+        ) {
             self.relativePath = relativePath
             self.expandsChildren = expandsChildren
+            self.childThreshold = childThreshold
         }
     }
 

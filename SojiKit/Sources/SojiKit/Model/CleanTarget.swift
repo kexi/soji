@@ -18,7 +18,15 @@ public struct CleanTarget: Sendable, Identifiable, Hashable {
 
     public let displayName: String
 
+    /// 代表 URL。UI にパスとして表示する。
     public let url: URL
+
+    /// 実際に削除する場所。通常は `url` 1 件だが、小さい兄弟をまとめた行では
+    /// 複数になる (CoreSimulator の未起動デバイス等)。
+    public let deletionURLs: [URL]
+
+    /// まとめられた場所の数。1 なら単独の行。
+    public var collapsedCount: Int { deletionURLs.count }
 
     public let risk: Risk
 
@@ -47,6 +55,7 @@ public struct CleanTarget: Sendable, Identifiable, Hashable {
         toolName: String,
         displayName: String,
         url: URL,
+        deletionURLs: [URL]? = nil,
         risk: Risk,
         allocatedSize: Int64,
         fileCount: Int,
@@ -61,6 +70,7 @@ public struct CleanTarget: Sendable, Identifiable, Hashable {
         self.toolName = toolName
         self.displayName = displayName
         self.url = url
+        self.deletionURLs = deletionURLs ?? [url]
         self.risk = risk
         self.allocatedSize = allocatedSize
         self.fileCount = fileCount

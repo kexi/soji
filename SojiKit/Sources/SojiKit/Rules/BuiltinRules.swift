@@ -30,7 +30,12 @@ public enum BuiltinRules {
             toolName: "Xcode",
             displayName: "DerivedData",
             // プロジェクト単位で残すか決めたい場面が多いので展開する。
-            locations: [.init("Library/Developer/Xcode/DerivedData", expandsChildren: true)],
+            locations: [
+                .init(
+                    "Library/Developer/Xcode/DerivedData",
+                    expandsChildren: true,
+                    childThreshold: 100 * 1024 * 1024)
+            ],
             risk: .safe,
             rationale: "中間ビルド生成物とインデックス。ソースからいつでも再生成できる。",
             consequence: "次回ビルドがフルビルドになり時間がかかる。インデックスも作り直しになる。"
@@ -238,7 +243,12 @@ public enum BuiltinRules {
             id: "xcode.archives",
             toolName: "Xcode",
             displayName: "Archives",
-            locations: [.init("Library/Developer/Xcode/Archives", expandsChildren: true)],
+            locations: [
+                .init(
+                    "Library/Developer/Xcode/Archives",
+                    expandsChildren: true,
+                    childThreshold: 100 * 1024 * 1024)
+            ],
             risk: .needsConfirmation,
             rationale: "提出済みビルドの成果物と dSYM を含む。再生成には当時のソースでの再ビルドが要る。",
             consequence: "過去バージョンのクラッシュログを記号化できなくなる。App Store 提出済みビルドの dSYM は取り戻せない。"
@@ -247,7 +257,13 @@ public enum BuiltinRules {
             id: "coresimulator.devices",
             toolName: "CoreSimulator",
             displayName: "シミュレータ本体",
-            locations: [.init("Library/Developer/CoreSimulator/Devices", expandsChildren: true)],
+            locations: [
+                .init(
+                    "Library/Developer/CoreSimulator/Devices",
+                    expandsChildren: true,
+                    // 実測: 88 件中の大半が 18MB 以下の未起動デバイスだった。
+                    childThreshold: 100 * 1024 * 1024)
+            ],
             risk: .needsConfirmation,
             rationale: "シミュレータのディスクイメージ。デバイス定義は再作成できる。",
             consequence: "シミュレータにインストール済みのアプリと、その中のデータが全部消える。"
