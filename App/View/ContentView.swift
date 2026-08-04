@@ -3,13 +3,13 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var model = ScanViewModel()
-    @State private var selectedTool: String?
+    @State private var selection: SidebarSelection = .all
 
     var body: some View {
         NavigationSplitView {
-            SidebarView(model: model, selectedTool: $selectedTool)
+            SidebarView(model: model, selection: $selection)
         } detail: {
-            TargetListView(model: model, tool: selectedTool)
+            TargetListView(model: model, tool: selection.toolName)
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -71,14 +71,14 @@ struct IdentifiedSummary: Identifiable {
 /// 重ねると glass on glass のアンチパターンになり、可読性が落ちる。
 private struct SidebarView: View {
     let model: ScanViewModel
-    @Binding var selectedTool: String?
+    @Binding var selection: SidebarSelection
 
     var body: some View {
-        List(selection: $selectedTool) {
+        List(selection: selectionBinding) {
             Section {
                 Label("すべて", systemImage: "square.grid.2x2")
                     .badge(model.targets.count)
-                    .tag(String?.none)
+                    .tag(SidebarSelection.all)
             }
 
             Section("ツール") {
@@ -90,7 +90,7 @@ private struct SidebarView: View {
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
-                    .tag(String?.some(summary.name))
+                    .tag(SidebarSelection.tool(summary.name))
                 }
             }
         }
@@ -99,10 +99,36 @@ private struct SidebarView: View {
         .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 320)
     }
 
+    /// Why Binding を挟むか: List の選択は「未選択」を nil で表す。行の外側を
+    /// クリックすると nil が入ってサイドバーの選択が消え、どこを見ているのか
+    /// 分からなくなる。nil は「すべて」に丸める。
+    private var selectionBinding: Binding<SidebarSelection?> {
+        Binding(
+            get: { selection },
+            set: { selection = $0 ?? .all })
+    }
+
     private var toolSummaries: [(name: String, bytes: Int64)] {
         Dictionary(grouping: model.targets, by: \.toolName)
             .map { (name: $0.key, bytes: $0.value.reclaimableBytes + $0.value.advisoryBytes) }
             .sorted { $0.bytes > $1.bytes }
+    }
+}
+
+/// サイドバーで選ばれているもの。
+///
+/// Why String? を使わないか: 「すべて」を nil で表すと、List の選択解除
+/// (これも nil) と区別できず、「すべて」をクリックしても選択状態にならない。
+enum SidebarSelection: Hashable {
+    case all
+    case tool(String)
+
+    /// 絞り込みに使うツール名。すべてなら nil。
+    var toolName: String? {
+        switch self {
+        case .all: return nil
+        case .tool(let name): return name
+        }
     }
 }
 
