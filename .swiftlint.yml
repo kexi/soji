@@ -1,3 +1,20 @@
+# Why opt_in_rules が要るか: force_unwrapping は既定で無効なルールなので、
+# severity を書くだけでは有効にならず「設定したのに効いていない」状態になる。
+opt_in_rules:
+  - force_unwrapping
+
+disabled_rules:
+  # Why 無効化するか: swift-format が複数行のコレクションリテラルに trailing
+  # comma を付ける一方、SwiftLint の既定はそれを禁止する。両者を有効にすると
+  # `just fmt` の出力を `just lint` が拒否し、check が永久に通らない。
+  # 整形の一貫性は swift-format 側に一元化する。
+  - trailing_comma
+
+  # Why 無効化するか: BuiltinRules は「消してよい場所」の宣言的なデータ集で、
+  # 行数はルール件数に比例して増える。分割しても可読性は上がらず、閾値を
+  # 追いかけて機械的に切るだけになる。
+  - type_body_length
+
 force_unwrapping:
   severity: warning
 
