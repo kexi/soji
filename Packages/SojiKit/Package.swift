@@ -5,7 +5,12 @@ let package = Package(
     name: "SojiKit",
     platforms: [.macOS(.v26)],
     products: [
-        .library(name: "SojiKit", targets: ["SojiKit"])
+        .library(name: "SojiKit", targets: ["SojiKit"]),
+        // GUI と同じロジックの上に立つ CLI。GUI でできることは CLI でもできる。
+        .executable(name: "soji", targets: ["soji"]),
+    ],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.5.0")
     ],
     targets: [
         .target(
@@ -16,6 +21,17 @@ let package = Package(
                 // 丸ごと MainActor に載って UI を止める。SojiKit は UI を持たない
                 // ので nonisolated を既定にする。個々の関数に @concurrent を貼って
                 // 回るより漏れがない (app ターゲット側は逆に MainActor 既定)。
+                .defaultIsolation(nil),
+                .swiftLanguageMode(.v6),
+            ]
+        ),
+        .executableTarget(
+            name: "soji",
+            dependencies: [
+                "SojiKit",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ],
+            swiftSettings: [
                 .defaultIsolation(nil),
                 .swiftLanguageMode(.v6),
             ]

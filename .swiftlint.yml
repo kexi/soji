@@ -22,9 +22,9 @@ force_cast:
   severity: error
 
 included:
-  - Soji
-  - SojiKit/Sources
-  - SojiKit/Tests
+  - App
+  - Packages/SojiKit/Sources
+  - Packages/SojiKit/Tests
 
 excluded:
-  - SojiKit/.build
+  - Packages/SojiKit/.build

@@ -11,7 +11,11 @@ DerivedData/
 # SwiftPM
 .build/
 .swiftpm/
-Package.resolved
+
+# Why not Package.resolved を無視するか: CLI が swift-argument-parser に
+# 依存するようになった時点で、解決済みバージョンを固定しないと「手元では
+# 通るが CI で違う版が来る」が起きる。アプリケーション (ライブラリではない)
+# なので lock ファイルはコミットする。
 
 # nix / direnv
 .direnv/

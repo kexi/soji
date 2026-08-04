@@ -10,16 +10,16 @@ options:
 
 packages:
   SojiKit:
-    path: SojiKit
+    path: Packages/SojiKit
 
 targets:
   Soji:
     type: application
     platform: macOS
     sources:
-      - path: Soji
+      - path: App
     info:
-      path: Soji/App/Info.plist
+      path: App/App/Info.plist
       properties:
         LSMinimumSystemVersion: "26.0"
         NSHumanReadableCopyright: "Copyright © 2026 Kei Nakayama"

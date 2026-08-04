@@ -55,6 +55,22 @@ run: build
       -showBuildSettings 2>/dev/null | awk '/ BUILT_PRODUCTS_DIR = /{print $3}')"
     open "$products/Soji.app"
 
+# Why release ビルドか: 100 万ファイル規模の走査で debug と release の差が
+# 大きい。手元で使う CLI は最適化済みを既定にする。
+#
+# CLI (soji コマンド) をビルドする
+build-cli:
+    cd Packages/SojiKit && swift build -c release --product soji
+
+# ビルドした CLI を PATH の通った場所に置く
+install-cli: build-cli
+    #!/usr/bin/env bash
+    set -euo pipefail
+    dest="${SOJI_INSTALL_DIR:-$HOME/.local/bin}"
+    mkdir -p "$dest"
+    cp Packages/SojiKit/.build/release/soji "$dest/soji"
+    echo "installed: $dest/soji"
+
 # ───── テスト / 品質 ─────────────────────────────────────────────────────────
 
 # Why swift test: Xcode を起動しないので数秒で回る。ロジックは全部 SojiKit に
@@ -62,7 +78,7 @@ run: build
 #
 # SojiKit のユニットテスト
 test:
-    cd SojiKit && swift test
+    cd Packages/SojiKit && swift test
 
 # SwiftLint。--strict で warning も失敗にする (警告の放置を防ぐ)。
 lint:
@@ -73,11 +89,11 @@ lint:
 #
 # 整形を適用する
 fmt:
-    xcrun swift-format format --in-place --recursive --parallel Soji SojiKit/Sources SojiKit/Tests
+    xcrun swift-format format --in-place --recursive --parallel App Packages/SojiKit/Sources Packages/SojiKit/Tests
 
 # 整形差分の検査のみ (CI 用)。差分があれば非ゼロ終了する。
 fmt-check:
-    xcrun swift-format lint --strict --recursive --parallel Soji SojiKit/Sources SojiKit/Tests
+    xcrun swift-format lint --strict --recursive --parallel App Packages/SojiKit/Sources Packages/SojiKit/Tests
 
 # 履歴全体を見る (pre-commit hook は staged のみ)。
 #
@@ -99,10 +115,10 @@ pin:
 # 多用するためコンパイルエラーが出やすい。「テストは緑なのに起動しない」を防ぐ。
 #
 # CI 相当のローカル一括ゲート (push 前にこれ)
-check: lint fmt-check test secrets pin-check build
+check: lint fmt-check test secrets pin-check build-cli build
 
 # CI 用のゲート。build を署名なし版に差し替えただけ。
-check-ci: lint fmt-check test secrets pin-check build-unsigned
+check-ci: lint fmt-check test secrets pin-check build-cli build-unsigned
 
 # ───── LP (docs/, GitHub Pages) ──────────────────────────────────────────────
 
