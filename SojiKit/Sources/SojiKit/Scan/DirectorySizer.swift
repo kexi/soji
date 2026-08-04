@@ -10,7 +10,7 @@ import Foundation
 ///
 /// - Note: APFS のクローンは検出できず二重に計上する (`du` も同じ)。実際に
 ///   解放される量はこの戻り値以下になる。
-func measureDirectory(at url: URL, isCancelled: () -> Bool) -> DirectoryMeasurement {
+public func measureDirectory(at url: URL, isCancelled: () -> Bool) -> DirectoryMeasurement {
     // Why ここに全キーを列挙するか: enumerator に宣言しなかったキーを後から
     // resourceValues で読むと、ファイルごとに追加の syscall が走る。100 万
     // ファイル規模ではこれが支配的コストになる。
