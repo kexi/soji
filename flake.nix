@@ -19,7 +19,11 @@
         pkgs = import nixpkgs { inherit system; };
       in
       {
-        devShells.default = pkgs.mkShell {
+        # Why mkShellNoCC: 既定の mkShell は stdenv の clang wrapper を PATH と
+        # LD / NIX_LDFLAGS に注入する。すると xcodebuild が nix の ld を使って
+        # しまい、SojiKit のリンクが失敗する (Ld ... SojiKit.o)。soji は Swift
+        # だけで書かれており C ツールチェーンを必要としないので、丸ごと外す。
+        devShells.default = pkgs.mkShellNoCC {
           packages =
             with pkgs;
             [
