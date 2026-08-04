@@ -7,6 +7,28 @@ import Foundation
 /// 独自ルールを足したくなったら、その時に拡張点を切る。
 public struct CleanRule: Sendable, Identifiable, Hashable {
 
+    /// 環境変数によるツールのホーム移動。
+    ///
+    /// `CARGO_HOME` は `~/.cargo` を、`PNPM_HOME` は `~/Library/pnpm` を
+    /// 置き換える。変数ごとに「相対パスのどこまでを置き換えるか」が違うため、
+    /// 置換対象を prefix として明示させる。
+    ///
+    /// Why 先頭 1 要素の置換で済ませないか: PNPM_HOME が置き換えるのは
+    /// `Library/pnpm` の 2 階層で、先頭だけ置換すると `Library` が消えて
+    /// 無関係なパスを指す。
+    public struct EnvironmentOverride: Sendable, Hashable {
+        /// 環境変数名 (`CARGO_HOME` 等)。
+        public let variable: String
+
+        /// この変数が置き換えるホーム相対の prefix (`".cargo"`, `"Library/pnpm"`)。
+        public let replaces: String
+
+        public init(_ variable: String, replaces: String) {
+            self.variable = variable
+            self.replaces = replaces
+        }
+    }
+
     /// ルールが指す場所ひとつ。
     public struct Location: Sendable, Hashable {
         /// ホームディレクトリからの相対パス。`PathResolver` が絶対 URL に解決する。
@@ -42,10 +64,8 @@ public struct CleanRule: Sendable, Identifiable, Hashable {
     /// 消した後に何が起きるか。UI にそのまま出す。
     public let consequence: String
 
-    /// パスを上書きする環境変数名 (`CARGO_HOME`, `GOPATH` 等)。
-    ///
-    /// 設定されていればホーム相対の既定パスより優先する。
-    public let environmentOverride: String?
+    /// パスを上書きする環境変数による移動先の指定。
+    public let environmentOverride: EnvironmentOverride?
 
     /// true なら削除せず、代わりに `advisoryCommand` を案内する。
     ///
@@ -63,7 +83,7 @@ public struct CleanRule: Sendable, Identifiable, Hashable {
         risk: Risk,
         rationale: String,
         consequence: String,
-        environmentOverride: String? = nil,
+        environmentOverride: EnvironmentOverride? = nil,
         isAdvisory: Bool = false,
         advisoryCommand: String? = nil
     ) {

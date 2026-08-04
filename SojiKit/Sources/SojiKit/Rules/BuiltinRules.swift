@@ -103,7 +103,7 @@ public enum BuiltinRules {
             risk: .safe,
             rationale: "crates.io から取得した .crate と、その展開結果。",
             consequence: "次回ビルドで再ダウンロード・再展開される。",
-            environmentOverride: "CARGO_HOME"
+            environmentOverride: .init("CARGO_HOME", replaces: ".cargo")
         ),
         CleanRule(
             id: "gradle.caches",
@@ -113,7 +113,7 @@ public enum BuiltinRules {
             risk: .safe,
             rationale: "依存 JAR とビルド出力のキャッシュ。",
             consequence: "次回ビルドで再取得され、時間がかかる。",
-            environmentOverride: "GRADLE_USER_HOME"
+            environmentOverride: .init("GRADLE_USER_HOME", replaces: ".gradle")
         ),
         CleanRule(
             id: "cocoapods.cache",
@@ -198,7 +198,7 @@ public enum BuiltinRules {
             risk: .slowToRebuild,
             rationale: "取得済みモジュールの zip とメタデータ。go.sum があれば同じ内容を再取得できる。",
             consequence: "次回ビルドでネットワークから再取得される。依存が多いと数分かかる。",
-            environmentOverride: "GOPATH"
+            environmentOverride: .init("GOPATH", replaces: "go")
         ),
         CleanRule(
             id: "maven.repository",
@@ -226,7 +226,7 @@ public enum BuiltinRules {
             risk: .slowToRebuild,
             rationale: "wrapper が取得した Gradle 本体。gradlew 実行時に再取得される。",
             consequence: "次回 gradlew 実行時に Gradle 本体を再ダウンロードする。",
-            environmentOverride: "GRADLE_USER_HOME"
+            environmentOverride: .init("GRADLE_USER_HOME", replaces: ".gradle")
         ),
     ]
 
@@ -263,7 +263,7 @@ public enum BuiltinRules {
             risk: .needsConfirmation,
             rationale: "git 依存のクローン。ネットワークがあれば再取得できる。",
             consequence: "オフラインではビルドできなくなる。参照先ブランチが消えていると再取得も失敗する。",
-            environmentOverride: "CARGO_HOME"
+            environmentOverride: .init("CARGO_HOME", replaces: ".cargo")
         ),
         CleanRule(
             id: "go.modRoot",
@@ -274,7 +274,7 @@ public enum BuiltinRules {
             // 実測: ~/go/pkg/mod 配下は dr-xr-xr-x / -r--r--r-- で作られる。
             rationale: "展開済みモジュール。読み取り専用権限で作られるため通常の削除では消せない。",
             consequence: "削除には go clean -modcache が必要。手動削除は権限エラーで途中失敗する。",
-            environmentOverride: "GOPATH",
+            environmentOverride: .init("GOPATH", replaces: "go"),
             isAdvisory: true,
             advisoryCommand: "go clean -modcache"
         ),
@@ -291,7 +291,7 @@ public enum BuiltinRules {
             // または APFS クローン)。ストアを消すと既存プロジェクトが壊れる。
             rationale: "全プロジェクトの node_modules が実体を共有するストア。",
             consequence: "既存プロジェクトの node_modules が壊れ、各プロジェクトで pnpm install のやり直しが要る。",
-            environmentOverride: "PNPM_HOME"
+            environmentOverride: .init("PNPM_HOME", replaces: "Library/pnpm")
         ),
         CleanRule(
             id: "docker.data",
