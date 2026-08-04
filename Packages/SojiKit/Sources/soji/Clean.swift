@@ -22,11 +22,7 @@ struct Clean: AsyncParsableCommand {
     var yes = false
 
     func run() async throws {
-        // Why includeAdvisory を強制的に落とすか: advisory はツール自身の
-        // コマンドでしか安全に消せないもの。削除経路に混ぜない。
-        var deletionFilter = filter
-        deletionFilter.includeAdvisory = false
-        let targets = try await scanAndFilter(deletionFilter)
+        let targets = try await scanAndFilter(filter, showsProgress: true, forDeletion: true)
 
         guard yes else {
             try reportDryRun(targets)

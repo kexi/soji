@@ -15,7 +15,8 @@ struct Scan: AsyncParsableCommand {
     @OptionGroup var output: OutputOptions
 
     func run() async throws {
-        let targets = try await scanAndFilter(filter)
+        // JSON 出力時も進捗は stderr なので邪魔しない。
+        let targets = try await scanAndFilter(filter, showsProgress: true)
 
         guard output.json else {
             printHuman(targets)
